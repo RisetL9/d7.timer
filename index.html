@@ -1,0 +1,275 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>D7 Field Boss Timer</title>
+<style>
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    font-family: Arial, sans-serif;
+    background: #1e1e1e;
+    color: #f5f5f5;
+    display: flex;
+    min-height: 100vh;
+  }
+
+  /* === NAVBAR === */
+  .sidebar {
+    width: 220px;
+    background: #2c2c2c;
+    padding: 20px;
+    flex-shrink: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+  }
+  .sidebar h2 {
+    color: #ff9800;
+    margin: 0 0 10px;
+    font-size: 1.3em;
+  }
+  .nav-link {
+    color: #ddd;
+    text-decoration: none;
+    padding: 10px 0;
+    display: block;
+    transition: 0.2s;
+  }
+  .nav-link:hover { color: #ff9800; }
+
+  /* === MAIN CONTENT === */
+  .content {
+    flex: 1;
+    padding: 20px;
+  }
+  h1 { color: #ff9800; text-align: center; margin-bottom: 20px; }
+
+  /* Search */
+  .search-bar {
+    max-width: 300px;
+    margin: 0 auto 20px;
+    display: flex;
+  }
+  .search-bar input {
+    width: 100%;
+    padding: 8px 12px;
+    border-radius: 6px;
+    border: none;
+    background: #333;
+    color: #fff;
+    outline: none;
+  }
+
+  /* Table */
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    background: #2a2a2a;
+    border-radius: 8px;
+    overflow: hidden;
+  }
+  th, td {
+    padding: 12px;
+    text-align: center;
+    border-bottom: 1px solid #444;
+    cursor: default;
+  }
+  th.sortable { cursor: pointer; user-select: none; }
+  th.sortable:hover { background: #3a3a3a; }
+  th.active { color: #ffcc80; }
+  tr:last-child td { border-bottom: none; }
+  .respawn { font-weight: bold; }
+  .respawn.ready { color: #4caf50; }
+  button {
+    padding: 6px 10px;
+    border: none;
+    border-radius: 6px;
+    background: #ff9800;
+    color: #1e1e1e;
+    cursor: pointer;
+    font-weight: bold;
+    transition: 0.2s;
+  }
+  button:hover { background: #ffa726; }
+</style>
+</head>
+<body>
+
+<!-- === SIDEBAR === -->
+<div class="sidebar">
+  <h2>Douglas 7</h2>
+  <a href="#" class="nav-link">⚔️ Field Boss Timer</a>
+  <a href="#" class="nav-link">🛡️ (Coming Soon)</a>
+  <a href="#" class="nav-link">🎯 (Coming Soon)</a>
+</div>
+
+<!-- === CONTENT === -->
+<div class="content">
+  <h1>⚔️ Field Boss Timer ⚔️</h1>
+
+  <div class="search-bar">
+    <input type="text" id="searchInput" placeholder="🔍 Find Bosses...">
+  </div>
+
+  <table>
+    <thead>
+      <tr>
+        <th>Nama Boss</th>
+        <th>Respawn (Jam)</th>
+        <th>Last Kill</th>
+        <th class="sortable" data-sort="countdown">Countdown ⬍</th>
+        <th>Aksi</th>
+      </tr>
+    </thead>
+    <tbody id="bossTableBody"></tbody>
+  </table>
+</div>
+
+<script>
+const bossTableBody = document.getElementById('bossTableBody');
+const searchInput = document.getElementById('searchInput');
+
+let bosses = [
+  { name: "Venatus", hours: 10 },
+  { name: "Viorent", hours: 10 },
+  { name: "Ego", hours: 21 },
+  { name: "Livera", hours: 24 },
+  { name: "Araneo", hours: 24 },
+  { name: "Undomiel", hours: 24 },
+  { name: "Lady Dalia", hours: 18 },
+  { name: "General Aquleus", hours: 29 },
+  { name: "Amentis", hours: 29 },
+  { name: "Baron Braudmore", hours: 32 },
+  { name: "Wannitas", hours: 48 },
+  { name: "Metus", hours: 48 },
+  { name: "Duplican", hours: 48 },
+  { name: "Shuliar", hours: 35 },
+  { name: "Gareth", hours: 32 },
+  { name: "Titore", hours: 37 },
+  { name: "Larba", hours: 35 },
+  { name: "Catena", hours: 35 },
+  { name: "Secreta", hours: 62 },
+  { name: "Ordo", hours: 62 },
+  { name: "Asta", hours: 62 },
+  { name: "Supore", hours: 62 }
+];
+
+let storedData = JSON.parse(localStorage.getItem('bossFixedTimers') || '{}');
+bosses = bosses.map(b => ({
+  ...b,
+  id: b.name.replace(/\s+/g,'-'),
+  lastKill: storedData[b.name]?.lastKill || null
+}));
+
+let sortConfig = { key: null, asc: true };
+
+function saveData() {
+  const data = {};
+  bosses.forEach(b => data[b.name] = { lastKill: b.lastKill });
+  localStorage.setItem('bossFixedTimers', JSON.stringify(data));
+}
+
+function timeRemaining(boss) {
+  if (!boss.lastKill) return Infinity;
+  const respawnTime = new Date(new Date(boss.lastKill).getTime() + boss.hours*60*60*1000);
+  return respawnTime - new Date();
+}
+
+function render() {
+  const query = searchInput.value.toLowerCase();
+  let filtered = bosses.filter(b => b.name.toLowerCase().includes(query));
+
+  if (sortConfig.key) {
+    filtered.sort((a,b) => {
+      let valA, valB;
+      switch(sortConfig.key) {
+        case 'name': valA = a.name.toLowerCase(); valB = b.name.toLowerCase(); break;
+        case 'hours': valA = a.hours; valB = b.hours; break;
+        case 'countdown': valA = timeRemaining(a); valB = timeRemaining(b); break;
+      }
+      if (valA < valB) return sortConfig.asc ? -1 : 1;
+      if (valA > valB) return sortConfig.asc ? 1 : -1;
+      return 0;
+    });
+  }
+
+  bossTableBody.innerHTML = '';
+  filtered.forEach(boss => {
+    const tr = document.createElement('tr');
+
+    const nameTd = document.createElement('td'); nameTd.textContent = boss.name;
+    const hoursTd = document.createElement('td'); hoursTd.textContent = boss.hours;
+
+    const lastKillTd = document.createElement('td');
+    lastKillTd.id = `last-${boss.id}`;
+    lastKillTd.textContent = boss.lastKill ? new Date(boss.lastKill).toLocaleString() : '-';
+
+    const countdownTd = document.createElement('td');
+    countdownTd.className = 'respawn';
+    countdownTd.id = `timer-${boss.id}`;
+
+    const actionTd = document.createElement('td');
+    const killBtn = document.createElement('button');
+    killBtn.textContent = 'Boss Mati';
+    killBtn.onclick = () => {
+      boss.lastKill = new Date().toISOString();
+      saveData();
+      updateTimers();
+    };
+    actionTd.appendChild(killBtn);
+
+    tr.appendChild(nameTd);
+    tr.appendChild(hoursTd);
+    tr.appendChild(lastKillTd);
+    tr.appendChild(countdownTd);
+    tr.appendChild(actionTd);
+    bossTableBody.appendChild(tr);
+  });
+  updateTimers();
+}
+
+function updateTimers() {
+  bosses.forEach(boss => {
+    const el = document.getElementById(`timer-${boss.id}`);
+    if (!el) return;
+    if (!boss.lastKill) { el.textContent = '--:--:--'; el.classList.remove('ready'); return; }
+
+    const respawnTime = new Date(new Date(boss.lastKill).getTime() + boss.hours*60*60*1000);
+    const diff = respawnTime - new Date();
+    if (diff > 0) {
+      const h = Math.floor(diff/1000/60/60);
+      const m = Math.floor((diff/1000/60)%60);
+      const s = Math.floor((diff/1000)%60);
+      el.textContent = `${pad(h)}:${pad(m)}:${pad(s)}`;
+      el.classList.remove('ready');
+    } else {
+      el.textContent = '🔥 Respawn!';
+      el.classList.add('ready');
+    }
+  });
+}
+
+function pad(n) { return n.toString().padStart(2,'0'); }
+
+searchInput.addEventListener('input', render);
+
+document.querySelectorAll('th.sortable').forEach(th => {
+  th.addEventListener('click', () => {
+    const key = th.dataset.sort;
+    if (sortConfig.key === key) {
+      sortConfig.asc = !sortConfig.asc;
+    } else {
+      sortConfig.key = key;
+      sortConfig.asc = true;
+    }
+    render();
+  });
+});
+
+render();
+setInterval(updateTimers, 1000);
+</script>
+</body>
+</html>
