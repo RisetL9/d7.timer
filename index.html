@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>D7 Field Boss Timer</title>
+<title>Boss Timer - Reset Feature</title>
 <style>
   * { box-sizing: border-box; }
   body {
@@ -15,7 +15,7 @@
     min-height: 100vh;
   }
 
-  /* === NAVBAR === */
+  /* === SIDEBAR === */
   .sidebar {
     width: 220px;
     background: #2c2c2c;
@@ -82,7 +82,7 @@
   tr:last-child td { border-bottom: none; }
   .respawn { font-weight: bold; }
   .respawn.ready { color: #4caf50; }
-  button {
+  .btn {
     padding: 6px 10px;
     border: none;
     border-radius: 6px;
@@ -91,16 +91,19 @@
     cursor: pointer;
     font-weight: bold;
     transition: 0.2s;
+    margin: 2px;
   }
-  button:hover { background: #ffa726; }
+  .btn:hover { background: #ffa726; }
+  .btn.reset { background: #f44336; color: #fff; }
+  .btn.reset:hover { background: #e53935; }
 </style>
 </head>
 <body>
 
 <!-- === SIDEBAR === -->
 <div class="sidebar">
-  <h2>Douglas 7</h2>
-  <a href="#" class="nav-link">⚔️ Field Boss Timer</a>
+  <h2>Game Tools</h2>
+  <a href="#" class="nav-link">⚔️ Boss Timer</a>
   <a href="#" class="nav-link">🛡️ (Coming Soon)</a>
   <a href="#" class="nav-link">🎯 (Coming Soon)</a>
 </div>
@@ -110,14 +113,14 @@
   <h1>⚔️ Field Boss Timer ⚔️</h1>
 
   <div class="search-bar">
-    <input type="text" id="searchInput" placeholder="🔍 Find Bosses...">
+    <input type="text" id="searchInput" placeholder="🔍 Cari boss...">
   </div>
 
   <table>
     <thead>
       <tr>
-        <th>Nama Boss</th>
-        <th>Respawn (Jam)</th>
+        <th class="sortable" data-sort="name">Nama Boss ⬍</th>
+        <th class="sortable" data-sort="hours">Respawn (Jam) ⬍</th>
         <th>Last Kill</th>
         <th class="sortable" data-sort="countdown">Countdown ⬍</th>
         <th>Aksi</th>
@@ -211,14 +214,29 @@ function render() {
     countdownTd.id = `timer-${boss.id}`;
 
     const actionTd = document.createElement('td');
+
+    // === Boss Mati ===
     const killBtn = document.createElement('button');
     killBtn.textContent = 'Boss Mati';
+    killBtn.className = 'btn';
     killBtn.onclick = () => {
       boss.lastKill = new Date().toISOString();
       saveData();
       updateTimers();
     };
+
+    // === Reset Timer ===
+    const resetBtn = document.createElement('button');
+    resetBtn.textContent = 'Reset';
+    resetBtn.className = 'btn reset';
+    resetBtn.onclick = () => {
+      boss.lastKill = null;
+      saveData();
+      updateTimers();
+    };
+
     actionTd.appendChild(killBtn);
+    actionTd.appendChild(resetBtn);
 
     tr.appendChild(nameTd);
     tr.appendChild(hoursTd);
